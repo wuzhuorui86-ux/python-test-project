@@ -11,6 +11,7 @@ import importlib.util
 import json
 import queue
 import re
+import queue
 import threading
 import tkinter as tk
 from dataclasses import dataclass
@@ -60,6 +61,14 @@ class PdfTextExtractor:
     def extract_pages(path: Path) -> list[PdfPage]:
         pypdf = require_module("pypdf", "pypdf")
         reader = pypdf.PdfReader(str(path))
+        try:
+            from pypdf import PdfReader
+        except ImportError as exc:  # pragma: no cover - exercised by users without deps
+            raise DependencyError(
+                "The pypdf package is required. Install it with: python -m pip install pypdf"
+            ) from exc
+
+        reader = PdfReader(str(path))
         pages: list[PdfPage] = []
         for index, page in enumerate(reader.pages, start=1):
             text = page.extract_text() or ""
@@ -101,6 +110,13 @@ class SpeechWorker:
     def _speak_in_thread(self, text: str, rate: int, voice_id: str | None) -> None:
         try:
             pyttsx3 = require_module("pyttsx3", "pyttsx3")
+            try:
+                import pyttsx3
+            except ImportError as exc:
+                raise DependencyError(
+                    "The pyttsx3 package is required. Install it with: python -m pip install pyttsx3"
+                ) from exc
+
             self._engine = pyttsx3.init()
             self._engine.setProperty("rate", rate)
             if voice_id:
@@ -206,6 +222,8 @@ class PdfVoiceReaderApp(tk.Tk):
         self._speech = SpeechWorker(self._status_queue)
         self._voice_ids: list[str | None] = [None]
         self._current_definition = ""
+        self._speech = SpeechWorker(self._status_queue)
+        self._voice_ids: list[str | None] = [None]
 
         self._build_widgets()
         self._load_voices()
@@ -255,6 +273,8 @@ class PdfVoiceReaderApp(tk.Tk):
         define_button.grid(row=0, column=7, padx=(0, 8))
         stop_button = ttk.Button(controls, text="Stop", command=self.stop_reading)
         stop_button.grid(row=0, column=8)
+        stop_button = ttk.Button(controls, text="Stop", command=self.stop_reading)
+        stop_button.grid(row=0, column=7)
 
         text_frame = ttk.Frame(self, padding=(10, 0, 10, 10))
         text_frame.grid(row=2, column=0, sticky="nsew")
@@ -290,10 +310,16 @@ class PdfVoiceReaderApp(tk.Tk):
         status = ttk.Label(self, textvariable=self.status_var, padding=(10, 0, 10, 10), anchor="w")
         status.grid(row=4, column=0, sticky="ew")
 
+        self.status_var = tk.StringVar(value="Open a PDF to begin.")
+        status = ttk.Label(self, textvariable=self.status_var, padding=(10, 0, 10, 10), anchor="w")
+        status.grid(row=3, column=0, sticky="ew")
+
     def _load_voices(self) -> None:
         voice_labels = ["Default Windows voice"]
         try:
             pyttsx3 = require_module("pyttsx3", "pyttsx3")
+            import pyttsx3
+
             engine = pyttsx3.init()
             voices = engine.getProperty("voices") or []
             self._voice_ids = [None]
@@ -389,6 +415,9 @@ class PdfVoiceReaderApp(tk.Tk):
             self._current_definition = text
         self.dictionary_text.delete("1.0", tk.END)
         self.dictionary_text.insert(tk.END, text)
+    def stop_reading(self) -> None:
+        self._speech.stop()
+        self.status_var.set("Stopping...")
 
     def _show_selected_page(self) -> None:
         self.text_box.delete("1.0", tk.END)
