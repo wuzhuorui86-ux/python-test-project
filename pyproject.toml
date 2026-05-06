@@ -8,6 +8,13 @@ version = "0.1.0"
 description = "A simple Python project for testing"
 readme = "README.md"
 requires-python = ">=3.10"
+dependencies = [
+    "pypdf>=4.0",
+    "pyttsx3>=2.90",
+]
+
+[project.scripts]
+pdf-voice-reader = "simple_project.pdf_voice_reader:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
